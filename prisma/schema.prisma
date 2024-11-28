@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Client {
+  id            String    @id @default(cuid())
+  phone         String    @unique
+  name          String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  asSender      Shipment[] @relation("Sender")
+  asRecipient   Shipment[] @relation("Recipient")
+}
+
+model FreightNumber {
+  id            String    @id
+  mode          String
+  origin        String
+  destination   String
+  status        String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  shipments     Shipment[]
+}
+
+model Shipment {
+  id            String    @id @default(cuid())
+  freightNumber FreightNumber @relation(fields: [freightNumberId], references: [id])
+  freightNumberId String
+  sender        Client    @relation("Sender", fields: [senderId], references: [id])
+  senderId      String
+  recipient     Client    @relation("Recipient", fields: [recipientId], references: [id])
+  recipientId   String
+  packages      Package[]
+  weights       Weight?
+  pricing       Pricing?
+  comments      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Package {
+  id          String    @id @default(cuid())
+  description String
+  quantity    Int
+  shipment    Shipment  @relation(fields: [shipmentId], references: [id])
+  shipmentId  String
+}
+
+model Weight {
+  id          String    @id @default(cuid())
+  food        Float?
+  nonFood     Float?
+  hn7         Float?
+  total       Float?
+  shipment    Shipment  @relation(fields: [shipmentId], references: [id])
+  shipmentId  String    @unique
+}
+
+model Pricing {
+  id                      String    @id @default(cuid())
+  foodTotal              Float?
+  nonFoodTotal          Float?
+  hn7Total              Float?
+  additionalFees        Float
+  additionalFeesCurrency String
+  totalEUR              Float
+  totalXOF              Float
+  advancePayment        Float
+  advancePaymentCurrency String
+  shipment              Shipment  @relation(fields: [shipmentId], references: [id])
+  shipmentId            String    @unique
+}
