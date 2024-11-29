@@ -63,8 +63,13 @@ export async function updateFreightStatus(id: string, status: string): Promise<v
   }
 }
 
-export async function createClient(data: any): Promise<any> {
+export async function createClient(data: {
+  name: string;
+  phone: string;
+  location?: string;
+}): Promise<Client> {
   try {
+    console.log('Creating client with data:', data);
     const response = await fetch(`${API_BASE_URL}/clients`, {
       method: 'POST',
       headers: {
@@ -72,9 +77,53 @@ export async function createClient(data: any): Promise<any> {
       },
       body: JSON.stringify(data),
     });
-    return handleResponse(response);
+    console.log('Response status:', response.status);
+    const result = await handleResponse<Client>(response);
+    console.log('Create client response:', result);
+    return result;
   } catch (error) {
     console.error('Error creating client:', error);
+    throw error;
+  }
+}
+
+export async function createShipment(data: {
+  freightNumberId: string;
+  senderName: string;
+  senderPhone: string;
+  recipientName: string;
+  recipientPhone: string;
+  recipientEmail?: string;
+  recipientStreet?: string;
+  recipientCity?: string;
+  recipientLandmark?: string;
+  recipientNotes?: string;
+  foodWeight?: number;
+  nonFoodWeight?: number;
+  hn7Weight?: number;
+  length?: number;
+  width?: number;
+  height?: number;
+  packageType?: string;
+  packaging: string;
+  specialHandling?: string[];
+  comments?: string;
+  additionalFeesAmount?: number;
+  additionalFeesCurrency?: 'EUR' | 'XOF';
+  advanceAmount?: number;
+  advanceCurrency?: 'EUR' | 'XOF';
+}): Promise<Shipment> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/shipments`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<Shipment>(response);
+  } catch (error) {
+    console.error('Error creating shipment:', error);
     throw error;
   }
 }

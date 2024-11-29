@@ -7,7 +7,7 @@ import { PriceCalculator } from './PriceCalculator';
 import { AdvancePaymentSection } from './AdvancePaymentSection';
 import { QRCodeModal } from '../QRCodeModal';
 import type { FreightNumber } from '../../types';
-import { createClient } from '../../lib/api';
+import { createShipment } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { validateForm } from './validation';
 
@@ -71,7 +71,7 @@ export function ShipmentForm({ freightNumber, onSuccess }: ShipmentFormProps) {
     setSubmitting(true);
 
     try {
-      const response = await createClient({
+      const response = await createShipment({
         freightNumberId: freightNumber.id,
         ...form,
         foodWeight: form.foodWeight ? parseFloat(form.foodWeight) : undefined,
@@ -91,7 +91,7 @@ export function ShipmentForm({ freightNumber, onSuccess }: ShipmentFormProps) {
         });
       }
 
-      toast.success('Expédition créée avec succès');
+      toast.success('Shipment created successfully');
       onSuccess();
       
       // Reset form
@@ -121,8 +121,8 @@ export function ShipmentForm({ freightNumber, onSuccess }: ShipmentFormProps) {
         advanceCurrency: 'EUR'
       });
     } catch (error) {
-      console.error('Erreur lors de la création de l\'expédition:', error);
-      toast.error(error instanceof Error ? error.message : 'Échec de la création de l\'expédition');
+      console.error('Error creating shipment:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to create shipment');
     } finally {
       setSubmitting(false);
     }
@@ -249,7 +249,7 @@ export function ShipmentForm({ freightNumber, onSuccess }: ShipmentFormProps) {
               disabled={submitting}
               className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200"
             >
-              {submitting ? 'Création...' : t('shipment.createButton')}
+              {submitting ? 'Creating...' : t('shipment.createButton')}
             </button>
           </div>
         </form>

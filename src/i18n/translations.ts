@@ -7,6 +7,36 @@ export const translations = {
       clients: 'Clients',
       logout: 'Logout'
     },
+    clients: {
+      title: 'Clients',
+      newClient: 'New Client',
+      createClient: 'Create New Client',
+      fullName: 'Full Name',
+      phoneNumber: 'Phone Number',
+      location: 'Location',
+      totalShipments: 'Total Shipments',
+      created: 'Created',
+      actions: 'Actions',
+      createButton: 'Create Client',
+      cancelButton: 'Cancel',
+      required: 'Required',
+      optional: 'Optional',
+      success: 'Client created successfully',
+      error: {
+        nameRequired: 'Name is required',
+        phoneRequired: 'Phone number is required',
+        createFailed: 'Failed to create client'
+      }
+    },
+    common: {
+      loading: 'Creating...',
+      priceCalculation: 'Price Calculation',
+      appliedRates: 'Applied Rates',
+      baseAmount: 'Base Amount',
+      advancePayment: 'Advance Payment',
+      remaining: 'Remaining Balance',
+      total: 'Total Amount'
+    },
     dashboard: {
       title: 'Dashboard',
       activeShipments: 'Active Shipments',
@@ -67,14 +97,6 @@ export const translations = {
       sameCountry: 'Origin and destination countries cannot be the same',
       numberFormat: 'Freight number must contain only digits'
     },
-    common: {
-      priceCalculation: 'Price Calculation',
-      appliedRates: 'Applied Rates',
-      baseAmount: 'Base Amount',
-      advancePayment: 'Advance Payment',
-      remaining: 'Remaining Balance',
-      total: 'Total Amount'
-    },
     rates: {
       perKg: '/kg',
       perCubicMeter: '/m³',
@@ -96,6 +118,36 @@ export const translations = {
       shipments: 'Expéditions',
       clients: 'Clients',
       logout: 'Déconnexion'
+    },
+    clients: {
+      title: 'Clients',
+      newClient: 'Nouveau Client',
+      createClient: 'Créer un Nouveau Client',
+      fullName: 'Nom et Prénom',
+      phoneNumber: 'Numéro de Téléphone',
+      location: 'Localisation',
+      totalShipments: 'Total des Expéditions',
+      created: 'Créé le',
+      actions: 'Actions',
+      createButton: 'Créer le Client',
+      cancelButton: 'Annuler',
+      required: 'Requis',
+      optional: 'Optionnel',
+      success: 'Client créé avec succès',
+      error: {
+        nameRequired: 'Le nom est requis',
+        phoneRequired: 'Le numéro de téléphone est requis',
+        createFailed: 'Échec de la création du client'
+      }
+    },
+    common: {
+      loading: 'Création en cours...',
+      priceCalculation: 'Calcul du Prix',
+      appliedRates: 'Tarifs Appliqués',
+      baseAmount: 'Montant de Base',
+      advancePayment: 'Avance de Paiement',
+      remaining: 'Reste à Payer',
+      total: 'Montant Total'
     },
     dashboard: {
       title: 'Tableau de Bord',
@@ -156,14 +208,6 @@ export const translations = {
       numberRequired: 'Veuillez saisir un numéro de fret',
       sameCountry: 'Les pays d\'origine et de destination ne peuvent pas être identiques',
       numberFormat: 'Le numéro de fret doit contenir uniquement des chiffres'
-    },
-    common: {
-      priceCalculation: 'Calcul du Prix',
-      appliedRates: 'Tarifs Appliqués',
-      baseAmount: 'Montant de Base',
-      advancePayment: 'Avance de Paiement',
-      remaining: 'Reste à Payer',
-      total: 'Montant Total'
     },
     rates: {
       perKg: '/kg',

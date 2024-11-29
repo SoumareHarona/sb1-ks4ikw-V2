@@ -1,129 +1,241 @@
 import sqlite3 from 'sqlite3';
-import { open } from 'sqlite';
+import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import dotenv from 'dotenv';
+import { dirname } from 'path';
 
-dotenv.config();
-
+// Get the directory name of the current module
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Use in-memory database for development
-const dbPath = process.env.NODE_ENV === 'production' 
-  ? join(__dirname, '..', process.env.DB_PATH)
-  : ':memory:';
+// Enable verbose logging for SQLite
+sqlite3.verbose();
 
-// Initialize database
-let db;
-
-async function initializeDatabase() {
-  try {
-    db = await open({
-      filename: dbPath,
-      driver: sqlite3.Database
-    });
-
-    // Enable foreign keys
-    await db.run('PRAGMA foreign_keys = ON');
-
-    // Create tables
-    await db.exec(`
-      CREATE TABLE IF NOT EXISTS clients (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        phone TEXT NOT NULL,
-        location TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    await db.exec(`
-      CREATE TABLE IF NOT EXISTS freight_numbers (
-        id TEXT PRIMARY KEY,
-        number TEXT UNIQUE NOT NULL,
-        mode TEXT NOT NULL,
-        origin TEXT NOT NULL,
-        destination TEXT NOT NULL,
-        status TEXT DEFAULT 'pending',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    await db.exec(`
-      CREATE TABLE IF NOT EXISTS shipments (
-        id TEXT PRIMARY KEY,
-        freight_number_id TEXT NOT NULL,
-        sender_id TEXT NOT NULL,
-        recipient_id TEXT NOT NULL,
-        tracking_number TEXT UNIQUE NOT NULL,
-        qr_code TEXT,
-        status TEXT DEFAULT 'pending',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (freight_number_id) REFERENCES freight_numbers(id),
-        FOREIGN KEY (sender_id) REFERENCES clients(id),
-        FOREIGN KEY (recipient_id) REFERENCES clients(id)
-      )
-    `);
-
-    return db;
-  } catch (error) {
-    console.error('Database initialization error:', error);
-    throw error;
-  }
-}
+let db = null;
 
 export async function getDatabase() {
-  if (!db) {
-    db = await initializeDatabase();
+  if (db) {
+    return db;
   }
-  return db;
+
+  return new Promise((resolve, reject) => {
+    console.log('Initializing new database connection...');
+    
+    // Use file-based database instead of in-memory, relative to server directory
+    const dbPath = path.join(__dirname, '..', 'data', 'dev.db');
+    console.log('Database path:', dbPath);
+    
+    // Ensure the data directory exists
+    const dataDir = path.dirname(dbPath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    
+    db = new sqlite3.Database(dbPath, async (err) => {
+      if (err) {
+        console.error('Database initialization error:', err);
+        reject(err);
+        return;
+      }
+      
+      console.log('Connected to the SQLite database');
+      
+      try {
+        await initializeSchema();
+        await addTestData();
+        resolve(db);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
 }
 
-export async function asyncRun(sql, params = []) {
-  const database = await getDatabase();
+async function initializeSchema() {
+  console.log('Initializing database schema...');
+  
+  return new Promise((resolve, reject) => {
+    db.serialize(() => {
+      // Create clients table first
+      db.run(`
+        CREATE TABLE IF NOT EXISTS clients (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          phone TEXT NOT NULL,
+          location TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `, (err) => {
+        if (err) {
+          console.error('Error creating clients table:', err);
+          reject(err);
+          return;
+        }
+        console.log('clients table created successfully');
+      });
+
+      // Then create freight numbers table
+      db.run(`
+        CREATE TABLE IF NOT EXISTS freight_numbers (
+          id TEXT PRIMARY KEY,
+          number TEXT UNIQUE NOT NULL,
+          mode TEXT NOT NULL,
+          origin TEXT NOT NULL,
+          destination TEXT NOT NULL,
+          status TEXT DEFAULT 'pending',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `, (err) => {
+        if (err) {
+          console.error('Error creating freight_numbers table:', err);
+          reject(err);
+          return;
+        }
+        console.log('freight_numbers table created successfully');
+      });
+
+      // Finally create shipments table that depends on both clients and freight_numbers
+      db.run(`
+        CREATE TABLE IF NOT EXISTS shipments (
+          id TEXT PRIMARY KEY,
+          freight_number_id TEXT NOT NULL,
+          tracking_number TEXT UNIQUE NOT NULL,
+          qr_code TEXT,
+          sender_id TEXT NOT NULL,
+          recipient_id TEXT NOT NULL,
+          recipient_email TEXT,
+          recipient_street TEXT,
+          recipient_city TEXT,
+          recipient_landmark TEXT,
+          recipient_notes TEXT,
+          food_weight REAL,
+          non_food_weight REAL,
+          hn7_weight REAL,
+          total_weight REAL,
+          length REAL,
+          width REAL,
+          height REAL,
+          volume REAL,
+          package_type TEXT,
+          packaging TEXT,
+          special_handling TEXT,
+          comments TEXT,
+          additional_fees_amount REAL,
+          additional_fees_currency TEXT CHECK(additional_fees_currency IN ('EUR', 'XOF')),
+          advance_amount REAL,
+          advance_currency TEXT CHECK(advance_currency IN ('EUR', 'XOF')),
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (freight_number_id) REFERENCES freight_numbers(id),
+          FOREIGN KEY (sender_id) REFERENCES clients(id),
+          FOREIGN KEY (recipient_id) REFERENCES clients(id)
+        )
+      `, (err) => {
+        if (err) {
+          console.error('Error creating shipments table:', err);
+          reject(err);
+          return;
+        }
+        console.log('shipments table created successfully');
+        resolve();
+      });
+    });
+  });
+}
+
+async function addTestData() {
+  console.log('Checking for test data...');
+  
   try {
-    const result = await database.run(sql, params);
-    return {
-      id: result.lastID,
-      changes: result.changes
-    };
+    const clientCount = await asyncGet('SELECT COUNT(*) as count FROM clients');
+    
+    if (clientCount.count === 0) {
+      console.log('Adding test data...');
+      
+      // Add test client
+      await asyncRun(`
+        INSERT INTO clients (id, name, phone, location)
+        VALUES (?, ?, ?, ?)
+      `, ['client-1', 'Test Client', '1234567890', 'Paris']);
+      
+      console.log('Test client added');
+
+      // Add test freight number
+      await asyncRun(`
+        INSERT INTO freight_numbers (id, number, mode, origin, destination)
+        VALUES (?, ?, ?, ?, ?)
+      `, ['test-1', 'FR001', 'air', 'FR', 'ML']);
+      
+      console.log('Test freight number added');
+
+      // Add test shipment
+      await asyncRun(`
+        INSERT INTO shipments (
+          id, freight_number_id, tracking_number,
+          sender_id, recipient_id,
+          packaging
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, [
+        'shipment-1',
+        'test-1',
+        'TRK001',
+        'client-1',
+        'client-1',
+        'Box'
+      ]);
+      
+      console.log('Test shipment added');
+    } else {
+      console.log('Test data already exists');
+    }
   } catch (error) {
-    console.error('Error executing query:', sql, params, error);
+    console.error('Error adding test data:', error);
     throw error;
   }
+}
+
+// Helper functions for database operations
+export async function asyncRun(sql, params = []) {
+  const database = await getDatabase();
+  return new Promise((resolve, reject) => {
+    console.log('Executing SQL:', sql, 'with params:', params);
+    database.run(sql, params, function(err) {
+      if (err) {
+        console.error('SQL Error:', err);
+        reject(err);
+      } else {
+        resolve(this);
+      }
+    });
+  });
 }
 
 export async function asyncGet(sql, params = []) {
   const database = await getDatabase();
-  try {
-    return await database.get(sql, params);
-  } catch (error) {
-    console.error('Error executing query:', sql, params, error);
-    throw error;
-  }
+  return new Promise((resolve, reject) => {
+    console.log('Executing SQL:', sql, 'with params:', params);
+    database.get(sql, params, (err, row) => {
+      if (err) {
+        console.error('SQL Error:', err);
+        reject(err);
+      } else {
+        resolve(row);
+      }
+    });
+  });
 }
 
 export async function asyncAll(sql, params = []) {
   const database = await getDatabase();
-  try {
-    return await database.all(sql, params);
-  } catch (error) {
-    console.error('Error executing query:', sql, params, error);
-    throw error;
-  }
+  return new Promise((resolve, reject) => {
+    console.log('Executing SQL:', sql, 'with params:', params);
+    database.all(sql, params, (err, rows) => {
+      if (err) {
+        console.error('SQL Error:', err);
+        reject(err);
+      } else {
+        resolve(rows);
+      }
+    });
+  });
 }
-
-// Handle cleanup on process termination
-process.on('SIGINT', async () => {
-  if (db) {
-    try {
-      await db.close();
-      console.log('Database connection closed');
-    } catch (error) {
-      console.error('Error closing database:', error);
-      process.exit(1);
-    }
-  }
-  process.exit(0);
-});

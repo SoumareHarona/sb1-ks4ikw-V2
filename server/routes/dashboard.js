@@ -5,114 +5,116 @@ import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 const router = express.Router();
 
 router.get('/', async (req, res) => {
+  console.log('Dashboard route accessed');
   try {
-    const [stats, recentShipments, monthlyStats] = await Promise.all([
-      asyncGet(`
-        SELECT 
-          COUNT(DISTINCT s.id) as total,
-          COUNT(DISTINCT CASE WHEN s.status = 'pending' THEN s.id END) as pending,
-          COUNT(DISTINCT CASE WHEN s.status = 'in_transit' THEN s.id END) as in_transit,
-          COUNT(DISTINCT CASE WHEN s.status = 'delivered' THEN s.id END) as delivered,
-          COUNT(DISTINCT CASE WHEN f.mode = 'air' THEN s.id END) as airFreight,
-          COUNT(DISTINCT CASE WHEN f.mode = 'sea' THEN s.id END) as seaFreight,
-          COUNT(DISTINCT c.id) as totalClients
-        FROM shipments s
-        JOIN freight_numbers f ON s.freight_number_id = f.id
-        LEFT JOIN clients c ON s.sender_id = c.id OR s.recipient_id = c.id
-      `),
-      asyncAll(`
-        SELECT 
-          s.*,
-          f.number as freight_number,
-          f.mode,
-          f.origin,
-          f.destination,
-          f.status,
-          sender.name as sender_name,
-          sender.phone as sender_phone,
-          recipient.name as recipient_name,
-          recipient.phone as recipient_phone
-        FROM shipments s
-        JOIN freight_numbers f ON s.freight_number_id = f.id
-        JOIN clients sender ON s.sender_id = sender.id
-        JOIN clients recipient ON s.recipient_id = recipient.id
-        ORDER BY s.created_at DESC
-        LIMIT 5
-      `),
-      getMonthlyStats()
-    ]);
+    // Get basic counts
+    const stats = await asyncGet(`
+      SELECT 
+        COUNT(DISTINCT s.id) as total_shipments,
+        SUM(CASE WHEN f.mode = 'air' THEN 1 ELSE 0 END) as air_freight,
+        SUM(CASE WHEN f.mode = 'sea' THEN 1 ELSE 0 END) as sea_freight,
+        COUNT(DISTINCT c.id) as total_clients
+      FROM shipments s
+      LEFT JOIN freight_numbers f ON s.freight_number_id = f.id
+      LEFT JOIN (
+        SELECT id FROM clients 
+        GROUP BY id
+      ) c ON (s.sender_id = c.id OR s.recipient_id = c.id)
+    `);
 
-    // Map shipments to the expected format
-    const mappedShipments = (recentShipments || []).map(shipment => ({
-      id: shipment.id,
-      trackingNumber: shipment.tracking_number,
-      freightNumber: shipment.freight_number,
-      mode: shipment.mode,
-      origin: shipment.origin,
-      destination: shipment.destination,
-      status: shipment.status,
-      sender: {
-        name: shipment.sender_name,
-        phone: shipment.sender_phone
-      },
-      recipient: {
-        name: shipment.recipient_name,
-        phone: shipment.recipient_phone
-      },
-      createdAt: shipment.created_at
-    }));
+    console.log('Stats query result:', stats);
 
-    res.json({
-      activeShipments: stats?.total || 0,
-      airFreight: stats?.airFreight || 0,
-      seaFreight: stats?.seaFreight || 0,
-      totalClients: stats?.totalClients || 0,
-      recentShipments: mappedShipments,
-      monthlyStats: monthlyStats || []
-    });
+    // Get recent shipments
+    const recentShipments = await asyncAll(`
+      SELECT 
+        s.id,
+        s.tracking_number,
+        f.number as freight_number,
+        f.mode,
+        f.origin,
+        f.destination,
+        f.status,
+        sender.name as sender_name,
+        sender.phone as sender_phone,
+        recipient.name as recipient_name,
+        recipient.phone as recipient_phone,
+        s.created_at
+      FROM shipments s
+      LEFT JOIN freight_numbers f ON s.freight_number_id = f.id
+      LEFT JOIN clients sender ON s.sender_id = sender.id
+      LEFT JOIN clients recipient ON s.recipient_id = recipient.id
+      ORDER BY s.created_at DESC
+      LIMIT 5
+    `);
+
+    console.log('Recent shipments query result:', recentShipments);
+
+    // Get current month stats
+    const currentDate = new Date();
+    const startOfCurrentMonth = format(startOfMonth(currentDate), 'yyyy-MM-dd');
+    const endOfCurrentMonth = format(endOfMonth(currentDate), 'yyyy-MM-dd');
+
+    const currentMonthStats = await asyncGet(`
+      SELECT 
+        COUNT(DISTINCT s.id) as total,
+        SUM(CASE WHEN f.mode = 'air' THEN 1 ELSE 0 END) as air_freight,
+        SUM(CASE WHEN f.mode = 'sea' THEN 1 ELSE 0 END) as sea_freight
+      FROM shipments s
+      LEFT JOIN freight_numbers f ON s.freight_number_id = f.id
+      WHERE date(s.created_at) BETWEEN date(?) AND date(?)
+    `, [startOfCurrentMonth, endOfCurrentMonth]);
+
+    console.log('Current month stats:', currentMonthStats);
+
+    // Format the response
+    const response = {
+      activeShipments: stats?.total_shipments || 0,
+      airFreight: stats?.air_freight || 0,
+      seaFreight: stats?.sea_freight || 0,
+      totalClients: stats?.total_clients || 0,
+      recentShipments: recentShipments.map(shipment => ({
+        id: shipment.id,
+        trackingNumber: shipment.tracking_number,
+        freightNumber: shipment.freight_number,
+        mode: shipment.mode,
+        origin: shipment.origin,
+        destination: shipment.destination,
+        status: shipment.status,
+        sender: {
+          name: shipment.sender_name,
+          phone: shipment.sender_phone
+        },
+        recipient: {
+          name: shipment.recipient_name,
+          phone: shipment.recipient_phone
+        },
+        createdAt: shipment.created_at
+      })),
+      monthlyStats: [{
+        date: startOfCurrentMonth,
+        airFreight: currentMonthStats?.air_freight || 0,
+        seaFreight: currentMonthStats?.sea_freight || 0,
+        totalShipments: currentMonthStats?.total || 0,
+        revenue: { EUR: 0, XOF: 0 }
+      }]
+    };
+
+    console.log('Sending dashboard response:', response);
+    res.json(response);
   } catch (err) {
-    console.error('Error fetching dashboard data:', err);
+    console.error('Dashboard error:', {
+      message: err.message,
+      stack: err.stack,
+      code: err.code,
+      errno: err.errno
+    });
+    
     res.status(500).json({ 
       error: 'Failed to retrieve dashboard data',
-      details: err.message 
+      details: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
   }
 });
-
-async function getMonthlyStats() {
-  const months = 6;
-  const stats = [];
-
-  for (let i = 0; i < months; i++) {
-    const date = subMonths(new Date(), i);
-    const start = format(startOfMonth(date), 'yyyy-MM-dd');
-    const end = format(endOfMonth(date), 'yyyy-MM-dd');
-
-    const monthStats = await asyncGet(`
-      SELECT 
-        COUNT(DISTINCT CASE WHEN f.mode = 'air' THEN s.id END) as airFreight,
-        COUNT(DISTINCT CASE WHEN f.mode = 'sea' THEN s.id END) as seaFreight,
-        COUNT(DISTINCT s.id) as totalShipments,
-        COUNT(DISTINCT c.id) as totalClients
-      FROM shipments s
-      JOIN freight_numbers f ON s.freight_number_id = f.id
-      LEFT JOIN clients c ON s.sender_id = c.id OR s.recipient_id = c.id
-      WHERE s.created_at BETWEEN ? AND ?
-    `, [start, end]);
-
-    stats.push({
-      date: start,
-      airFreight: monthStats?.airFreight || 0,
-      seaFreight: monthStats?.seaFreight || 0,
-      totalShipments: monthStats?.totalShipments || 0,
-      revenue: {
-        EUR: 0, // We'll implement revenue calculation later
-        XOF: 0
-      }
-    });
-  }
-
-  return stats.reverse();
-}
 
 export default router;
