@@ -18,8 +18,10 @@ export function CreateClientForm({ onSuccess }: CreateClientFormProps) {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    console.log('Submitting form with data:', form);
     
     if (!form.name.trim() || !form.phone.trim()) {
+      console.log('Validation failed: Missing required fields');
       toast.error(t('clients.error.nameRequired'));
       return;
     }
@@ -27,11 +29,13 @@ export function CreateClientForm({ onSuccess }: CreateClientFormProps) {
     setSubmitting(true);
 
     try {
-      await createClient({
+      console.log('Calling createClient API...');
+      const result = await createClient({
         name: form.name.trim(),
         phone: form.phone.trim(),
         location: form.location.trim() || undefined
       });
+      console.log('API call successful, result:', result);
 
       toast.success(t('clients.success'));
       onSuccess();
@@ -44,7 +48,11 @@ export function CreateClientForm({ onSuccess }: CreateClientFormProps) {
       });
     } catch (error) {
       console.error('Error creating client:', error);
-      toast.error(t('clients.error.createFailed'));
+      if (error instanceof Error) {
+        toast.error(error.message || t('clients.error.createFailed'));
+      } else {
+        toast.error(t('clients.error.createFailed'));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -72,6 +80,7 @@ export function CreateClientForm({ onSuccess }: CreateClientFormProps) {
             onChange={handleChange}
             required
             className="block w-full rounded-lg border-blue-200 bg-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            placeholder={t('clients.fullNamePlaceholder')}
           />
         </div>
         
@@ -87,6 +96,7 @@ export function CreateClientForm({ onSuccess }: CreateClientFormProps) {
             onChange={handleChange}
             required
             className="block w-full rounded-lg border-blue-200 bg-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            placeholder={t('clients.phonePlaceholder')}
           />
         </div>
 
@@ -101,6 +111,7 @@ export function CreateClientForm({ onSuccess }: CreateClientFormProps) {
             value={form.location}
             onChange={handleChange}
             className="block w-full rounded-lg border-blue-200 bg-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            placeholder={t('clients.locationPlaceholder')}
           />
         </div>
 

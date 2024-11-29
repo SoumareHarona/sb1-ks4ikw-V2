@@ -23,7 +23,7 @@ router.get('/', async (req, res) => {
       ORDER BY c.created_at DESC
     `);
     console.log('Clients query successful, found:', clients.length, 'clients');
-
+    console.log('Sending response with clients:', clients);
     res.json(clients);
   } catch (error) {
     console.error('Error in GET /api/clients:', {
@@ -106,15 +106,26 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // Check if phone number already exists
+    const existingClient = await asyncGet('SELECT id FROM clients WHERE phone = ?', [phone.trim()]);
+    if (existingClient) {
+      console.log('Phone number already exists:', phone);
+      return res.status(400).json({
+        error: 'Phone number already exists',
+        details: 'A client with this phone number already exists'
+      });
+    }
+
     const id = uuidv4();
     console.log('Generated new client ID:', id);
     
     console.log('Executing insert query...');
-    await asyncRun(`
+    const result = await asyncRun(`
       INSERT INTO clients (id, name, phone, location, created_at)
       VALUES (?, ?, ?, ?, datetime('now'))
     `, [id, name.trim(), phone.trim(), location?.trim() || null]);
-    console.log('Insert successful');
+
+    console.log('Insert result:', result);
 
     console.log('Fetching created client...');
     const client = await asyncGet(`
@@ -129,6 +140,8 @@ router.post('/', async (req, res) => {
       WHERE c.id = ?
     `, [id]);
     
+    console.log('Created client:', client);
+    
     client.shipments = [];
     
     console.log('Sending response with created client');
@@ -139,6 +152,15 @@ router.post('/', async (req, res) => {
       stack: error.stack,
       sql: error.sql
     });
+
+    // Check if error is due to unique constraint violation
+    if (error.message && error.message.includes('UNIQUE constraint failed')) {
+      return res.status(400).json({
+        error: 'Phone number already exists',
+        details: 'A client with this phone number already exists'
+      });
+    }
+
     res.status(500).json({
       error: 'Failed to create client',
       details: error.message

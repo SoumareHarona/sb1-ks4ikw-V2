@@ -10,7 +10,7 @@ import dashboardRoutes from './routes/dashboard.js';
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3001; // Changed default port to 3001
+const port = process.env.PORT || 3001;
 
 console.log('Starting server configuration...');
 console.log('Server port:', port);
@@ -24,8 +24,15 @@ app.use(cors({
 // Parse JSON bodies
 app.use(express.json());
 
+// Add request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
+
 // Add basic test route
 app.get('/', (req, res) => {
+  console.log('Root route accessed');
   res.send('Server is running');
 });
 
@@ -80,10 +87,12 @@ async function startServer() {
     console.log('Available tables:', tables.map(t => t.name));
 
     // API Routes with prefixes
+    console.log('Setting up API routes...');
     app.use('/api/clients', clientRoutes);
     app.use('/api/freight-numbers', freightRoutes);
     app.use('/api/shipments', shipmentRoutes);
     app.use('/api/dashboard', dashboardRoutes);
+    console.log('API routes configured');
 
     // Error handling middleware
     app.use((err, req, res, next) => {

@@ -22,10 +22,15 @@ export const translations = {
       required: 'Required',
       optional: 'Optional',
       success: 'Client created successfully',
+      fullNamePlaceholder: 'Enter full name',
+      phonePlaceholder: 'Enter phone number',
+      locationPlaceholder: 'Enter location (optional)',
       error: {
         nameRequired: 'Name is required',
         phoneRequired: 'Phone number is required',
-        createFailed: 'Failed to create client'
+        createFailed: 'Failed to create client. Please try again.',
+        serverError: 'Server error occurred. Please try again later.',
+        networkError: 'Network error. Please check your connection.'
       }
     },
     common: {
@@ -134,10 +139,15 @@ export const translations = {
       required: 'Requis',
       optional: 'Optionnel',
       success: 'Client créé avec succès',
+      fullNamePlaceholder: 'Entrez le nom complet',
+      phonePlaceholder: 'Entrez le numéro de téléphone',
+      locationPlaceholder: 'Entrez la localisation (optionnel)',
       error: {
         nameRequired: 'Le nom est requis',
         phoneRequired: 'Le numéro de téléphone est requis',
-        createFailed: 'Échec de la création du client'
+        createFailed: 'Échec de la création du client. Veuillez réessayer.',
+        serverError: 'Erreur serveur. Veuillez réessayer plus tard.',
+        networkError: 'Erreur réseau. Veuillez vérifier votre connexion.'
       }
     },
     common: {
